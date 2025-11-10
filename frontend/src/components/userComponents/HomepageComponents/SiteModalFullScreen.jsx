@@ -1,0 +1,438 @@
+import React, { useState, Suspense, lazy, useEffect } from "react";
+import { X, Volume2, Star, Info, Tag, Glasses, Send, Edit2, Trash2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import ttsService from "../../../utils/textToSpeech";
+import MediaCarousel from "../../shared/MediaCarousel";
+import axios from "axios";
+import { useParams } from "react-router-dom";
+import QRScanner from "../QRScannerSimple";
+
+
+export default function SiteModalFullScreen({
+  selectedPin,
+  onClose,
+  distance,
+  currentPinIndex,
+  pinsLength,
+  goToNextStop,
+  simulateGoToNextSite,
+  isGuestMode = false,
+}) {
+  const { t } = useTranslation();
+  const { itineraryId } = useParams();
+  const [showAR, setShowAR] = useState(false);
+  const [scannedArUrl, setScannedArUrl] = useState(null);
+  const [showFullDescription, setShowFullDescription] = useState(false);
+  const [userLanguage, setUserLanguage] = useState('english');
+  const [showFeeModal, setShowFeeModal] = useState(false);
+
+  // Cancel any ongoing TTS when modal opens
+  useEffect(() => {
+    if (selectedPin) {
+      // Cancel any ongoing TTS (like directions) when modal opens
+      ttsService.cancel();
+    }
+    
+    // Fetch user language preference
+    const fetchUserLanguage = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (token) {
+          const response = await axios.get(
+            `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'}/auth/user`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          const language = response.data.language || 'english';
+          setUserLanguage(language.toLowerCase());
+        }
+      } catch (error) {
+        console.error('Failed to fetch user language:', error);
+        setUserLanguage('english');
+      }
+    };
+    fetchUserLanguage();
+  }, []);
+
+  // Cleanup: stop TTS when component unmounts (modal closes)
+  useEffect(() => {
+    return () => {
+      ttsService.cancel();
+    };
+  }, []);
+
+  // Handler to manually play description (triggered by "Listen to Description" button)
+  const handlePlayDescription = () => {
+    if (selectedPin) {
+      const description = selectedPin.description || selectedPin.siteDescription || "";
+      if (description) {
+        // Temporarily enable TTS if it's disabled, then speak
+        const wasEnabled = ttsService.isEnabled;
+        if (!wasEnabled) {
+          ttsService.enable();
+        }
+        
+        // Get only the first paragraph for TTS
+        const firstParagraph = description.split("\n\n")[0].trim();
+        ttsService.speak(firstParagraph);
+        
+        // Restore previous TTS state after speaking
+        if (!wasEnabled) {
+          setTimeout(() => {
+            ttsService.disable();
+          }, firstParagraph.length * 50); // Estimate time based on text length
+        }
+      }
+    }
+  };
+
+
+  return (
+    <div 
+      className="absolute inset-0 z-50 bg-gradient-to-b from-gray-50 to-white overflow-y-auto"
+      style={{
+        paddingTop: "env(safe-area-inset-top)",
+        paddingBottom: "env(safe-area-inset-bottom)",
+      }}
+    >
+      {/* Modern Header with Close Button */}
+      <div className="sticky top-0 bg-white/95 backdrop-blur-md border-b border-gray-200 px-5 py-4 flex items-center justify-between shadow-sm z-10">
+        <div>
+          <h2 className="text-lg font-bold text-gray-900">Site Information</h2>
+          <p className="text-xs text-gray-500 mt-0.5">Explore the details</p>
+        </div>
+        <button
+          onClick={() => {
+            ttsService.cancel(); // Stop any ongoing speech
+            onClose();
+          }}
+          className="p-2.5 hover:bg-gray-100 rounded-full transition-all duration-200 hover:scale-110 active:scale-95"
+          aria-label="Close site information"
+        >
+          <X className="w-5 h-5 text-gray-700" />
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="px-5 py-6 pb-20 max-w-3xl mx-auto">
+        {/* AR Mode fullscreen inside modal */}
+        {showAR ? (
+          <div className="h-[70vh] rounded-xl overflow-hidden">
+            {scannedArUrl ? (
+              <div className="flex flex-col h-full">
+                <iframe
+                  src={scannedArUrl}
+                  title="AR Experience"
+                  className="flex-1 w-full"
+                  allow="camera; microphone; gyroscope; accelerometer; magnetometer; xr-spatial-tracking; fullscreen;"
+                  allowFullScreen
+                />
+                <button
+                  onClick={() => {
+                    setShowAR(false);
+                    setScannedArUrl(null);
+                  }}
+                  className="mt-3 w-full bg-gray-600 hover:bg-gray-700 text-white px-4 py-3 text-base font-medium rounded-lg shadow transition-colors"
+                >
+                  Exit AR Experience
+                </button>
+              </div>
+            ) : (
+              <QRScanner
+                onScanSuccess={(url) => {
+                  setScannedArUrl(url);
+                  ttsService.speak(t('tts_qrScanned') || "QR Code scanned successfully");
+                }}
+                onClose={() => {
+                  setShowAR(false);
+                  setScannedArUrl(null);
+                }}
+              />
+            )}
+          </div>
+        ) : (
+          <>
+
+            {/* Title */}
+            <div className="mb-6">
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <h3 className="text-3xl font-bold text-gray-900 leading-tight flex-1">
+                  {selectedPin.title || selectedPin.siteName}
+                </h3>
+              </div>
+              
+              {/* Badges Container */}
+              <div className="flex flex-wrap gap-2">
+                {/* Category Badge */}
+                {selectedPin.category && (
+                  <div
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm"
+                    style={{
+                      backgroundColor: '#fef2f0',
+                      color: '#f04e37'
+                    }}
+                  >
+                    <Tag className="w-3.5 h-3.5" />
+                    <span>{selectedPin.category.name || selectedPin.category}</span>
+                  </div>
+                )}
+                
+                {/* Entrance Fee Badge */}
+                {selectedPin.feeType && selectedPin.feeType !== "none" && (
+                <button
+                  onClick={() => setShowFeeModal(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 hover:scale-105 active:scale-95 shadow-sm"
+                  style={{
+                    backgroundColor: selectedPin.feeType === "fort_santiago" ? "#FEF3C7" : "#DBEAFE",
+                    color: selectedPin.feeType === "fort_santiago" ? "#92400E" : "#1E40AF"
+                  }}
+                >
+                  <span className="font-bold">₱</span>
+                  <span>{selectedPin.feeType === "fort_santiago" ? "Fort Santiago Fee" : "Entrance Fee"}</span>
+                  <Info className="w-3.5 h-3.5" />
+                </button>
+                )}
+              </div>
+            </div>
+            
+            {/* Fee Hint Modal */}
+            {showFeeModal && (
+              <div 
+                className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+                onClick={() => setShowFeeModal(false)}
+              >
+                <div 
+                  className="bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 overflow-hidden"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div 
+                    className="p-4 flex items-center gap-3"
+                    style={{ backgroundColor: selectedPin.feeType === "fort_santiago" ? "#f04e37" : "#2563EB" }}
+                  >
+                    <span className="text-white text-2xl font-bold">₱</span>
+                    <h3 className="text-lg font-bold text-white">
+                      {selectedPin.feeType === "fort_santiago" ? "Fort Santiago Entrance" : "Entrance Fee Required"}
+                    </h3>
+                  </div>
+                  
+                  <div className="p-5">
+                    {selectedPin.feeType === "fort_santiago" ? (
+                      <>
+                        <p className="text-gray-700 text-sm mb-3">
+                          This site is located within Fort Santiago and requires an entrance fee.
+                        </p>
+                        {selectedPin.feeAmount ? (
+                          <div className="bg-orange-50 p-3 rounded-lg border border-orange-200 mb-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-sm font-semibold text-gray-800">
+                                Fort Santiago Entrance Fee:
+                              </p>
+                              <span className="text-[#f04e37] font-bold text-lg">₱{selectedPin.feeAmount}</span>
+                            </div>
+                            {selectedPin.feeAmountDiscounted && (
+                              <div className="flex items-center justify-between bg-white/50 p-2 rounded-md mb-2">
+                                <p className="text-xs font-medium text-gray-700">
+                                  Student/PWD/Senior Citizen:
+                                </p>
+                                <span className="text-green-600 font-bold text-base">₱{selectedPin.feeAmountDiscounted}</span>
+                              </div>
+                            )}
+                            <div className="bg-white/60 p-2 rounded-md mt-2">
+                              <p className="text-xs text-gray-700 font-medium">
+                                Payment will be upon entrance at the gate. This will give you access to all sites within Fort Santiago.
+                              </p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="bg-orange-50 p-3 rounded-lg border border-orange-200 mb-3">
+                            <p className="text-sm text-gray-700 mb-2">
+                              Please check the current entrance fee at the Fort Santiago entrance.
+                            </p>
+                            <p className="text-xs text-gray-600">
+                              Payment at the gate will give you access to all sites within Fort Santiago.
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-gray-700 text-sm mb-3">
+                          An entrance fee is required to visit <span className="font-semibold">{selectedPin.title || selectedPin.siteName}</span>.
+                        </p>
+                        {selectedPin.feeAmount ? (
+                          <div className="bg-blue-50 p-3 rounded-lg border border-blue-200 mb-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-sm font-semibold text-gray-800">
+                                Entrance Fee:
+                              </p>
+                              <span className="text-blue-700 font-bold text-lg">₱{selectedPin.feeAmount}</span>
+                            </div>
+                            {selectedPin.feeAmountDiscounted && (
+                              <div className="flex items-center justify-between bg-white/50 p-2 rounded-md mb-2">
+                                <p className="text-xs font-medium text-gray-700">
+                                  Student/PWD/Senior Citizen:
+                                </p>
+                                <span className="text-green-600 font-bold text-base">₱{selectedPin.feeAmountDiscounted}</span>
+                              </div>
+                            )}
+                            <p className="text-xs text-gray-600 mt-1">
+                              Please have the fee ready when visiting this site.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="bg-blue-50 p-3 rounded-lg border border-blue-200 mb-3">
+                            <p className="text-sm text-gray-700">
+                              Please check on-site for current entrance fee rates.
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    )}
+                    
+                    <button
+                      onClick={() => setShowFeeModal(false)}
+                      className="w-full py-2.5 rounded-lg font-semibold text-sm transition-colors"
+                      style={{
+                        backgroundColor: selectedPin.feeType === "fort_santiago" ? "#f04e37" : "#2563EB",
+                        color: "white"
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.opacity = "0.9";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.opacity = "1";
+                      }}
+                    >
+                      Got it
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Media Files Carousel - Modern Design */}
+            {selectedPin.mediaFiles && selectedPin.mediaFiles.length > 0 && (
+              <div className="mb-6">
+                <div className="rounded-xl overflow-hidden shadow-lg">
+                  <MediaCarousel mediaFiles={selectedPin.mediaFiles} />
+                </div>
+              </div>
+            )}
+
+            {/* Fallback to old mediaUrl if mediaFiles not available */}
+            {(!selectedPin.mediaFiles || selectedPin.mediaFiles.length === 0) && selectedPin.mediaUrl && (
+              <div className="mb-10">
+                {selectedPin.mediaType === "video" ? (
+                  <video
+                    src={selectedPin.mediaUrl}
+                    className="w-full h-64 md:h-80 object-cover rounded-xl shadow-lg"
+                    muted
+                    controls
+                    crossOrigin="anonymous"
+                  >
+                    <track kind="captions" />
+                  </video>
+                ) : (
+                  <img
+                    src={selectedPin.mediaUrl}
+                    alt={selectedPin.title || selectedPin.siteName}
+                    className="w-full h-64 md:h-80 object-cover rounded-xl shadow-lg"
+                  />
+                )}
+              </div>
+            )}
+
+            {/* Read Description Button - Modern Design */}
+            <button
+              onClick={handlePlayDescription}
+              className="mb-6 w-full text-white px-5 py-3.5 rounded-xl font-semibold transition-all duration-200 flex items-center justify-center gap-2.5 shadow-md hover:shadow-lg active:scale-98 bg-gradient-to-r from-[#f04e37] to-[#ff6b54]"
+              aria-label="Read site description aloud"
+            >
+              <Volume2 className="w-5 h-5" />
+              <span>Listen to Description</span>
+            </button>
+
+            {/* Description - Enhanced Typography with Language Support */}
+            <div className="bg-white rounded-xl p-5 mb-8 border border-gray-200 shadow-sm">
+              <div className="prose prose-sm max-w-none">
+                <div className="text-base leading-relaxed text-gray-700 space-y-4">
+                  {(() => {
+                    let description = '';
+                    if (userLanguage === 'tagalog' && selectedPin.siteDescriptionTagalog) {
+                      description = selectedPin.siteDescriptionTagalog;
+                    } else if (userLanguage === 'english' && selectedPin.siteDescription) {
+                      description = selectedPin.siteDescription;
+                    } else {
+                      description = selectedPin.description || selectedPin.siteDescription || selectedPin.siteDescriptionTagalog || 'No description available';
+                    }
+                    
+                    return description.split('\n\n').map((paragraph, index) => {
+                      if (index === 0 || showFullDescription) {
+                        return <p key={index} className="text-gray-800">{paragraph.trim()}</p>;
+                      }
+                      return null;
+                    });
+                  })()}
+                </div>
+                
+                {/* Read More/Less Button */}
+                {(() => {
+                  let description = '';
+                  if (userLanguage === 'tagalog' && selectedPin.siteDescriptionTagalog) {
+                    description = selectedPin.siteDescriptionTagalog;
+                  } else if (userLanguage === 'english' && selectedPin.siteDescription) {
+                    description = selectedPin.siteDescription;
+                  } else {
+                    description = selectedPin.description || selectedPin.siteDescription || selectedPin.siteDescriptionTagalog || '';
+                  }
+                  return description.split('\n\n').length > 1;
+                })() && (
+                  <button
+                    onClick={() => setShowFullDescription(!showFullDescription)}
+                    className="mt-4 font-semibold text-sm flex items-center gap-1 transition-colors"
+                    style={{ color: '#f04e37' }}
+                    onMouseEnter={(e) => e.currentTarget.style.color = '#d9442f'}
+                    onMouseLeave={(e) => e.currentTarget.style.color = '#f04e37'}
+                  >
+                    {showFullDescription ? (
+                      <>
+                        <span>Show Less</span>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                        </svg>
+                      </>
+                    ) : (
+                      <>
+                        <span>Read More</span>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* AR Mode Button - Modern Design */}
+            {selectedPin.arEnabled && (
+              <button
+                onClick={() => {
+                  setShowAR(true);
+                  ttsService.speak(t('tts_openingAR'));
+                }}
+                className="w-full text-center text-white px-5 py-4 text-base font-bold rounded-xl shadow-lg hover:shadow-xl mb-8 transition-all duration-200 active:scale-98 flex items-center justify-center gap-2"
+                style={{ background: 'linear-gradient(to right, #f04e37, #d9442f)' }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'linear-gradient(to right, #d9442f, #c23d2a)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'linear-gradient(to right, #f04e37, #d9442f)'}
+                aria-label="Scan QR Code for AR"
+              >
+                <Glasses className="w-5 h-5" />
+                <span>Scan QR Code for AR</span>
+              </button>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
