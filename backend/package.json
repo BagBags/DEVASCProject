@@ -9,7 +9,7 @@
     "test": "jest --detectOpenHandles --forceExit",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "test:ui": "npm test && start test-dashboard.html",
+    "test:ui": "node generate-test-report.js",
     "postinstall": "npm rebuild argon2"
   },
   "keywords": [
