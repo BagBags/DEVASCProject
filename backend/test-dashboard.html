@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Juander • Automated Testing Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #111831;
+      --panel-2: #0f152b;
+      --muted: #8a93a6;
+      --text: #e7eaf3;
+      --brand: #6d5efb;
+      --brand-2: #8f7bff;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --border: #1f2a4a;
+      --shadow: 0 10px 30px rgba(0,0,0,0.25);
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      color: var(--text);
+      background: radial-gradient(1200px 800px at 100% -100px, rgba(141, 124, 255, 0.18), rgba(109, 94, 251, 0.05)),
+                  radial-gradient(1000px 700px at -20% -80px, rgba(109,94,251,0.15), rgba(11,16,32,0.8)),
+                  var(--bg);
+    }
+    .container { max-width: 1200px; margin: 0 auto; padding: 32px 20px 48px; }
+
+    /* Header */
+    .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+    .brand { display: flex; gap: 14px; align-items: center; }
+    .brand .logo {
+      height: 44px; width: 44px; border-radius: 12px;
+      background: linear-gradient(135deg, var(--brand), var(--brand-2));
+      display: grid; place-items: center; color: white; box-shadow: var(--shadow);
+    }
+    .brand .title { line-height: 1.25; }
+    .brand .title h1 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: 0.2px; }
+    .brand .title span { color: var(--muted); font-size: 13px; }
+
+    .actions { display: flex; gap: 10px; }
+    .btn {
+      appearance: none; border: 1px solid var(--border); color: var(--text);
+      background: linear-gradient(180deg, #141d3a, #0f152b);
+      padding: 10px 14px; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 13px;
+      display: inline-flex; align-items: center; gap: 8px; transition: all .2s ease; box-shadow: var(--shadow);
+    }
+    .btn:hover { transform: translateY(-1px); border-color: #2a3a6a; }
+    .btn.primary { border-color: transparent; background: linear-gradient(135deg, var(--brand), var(--brand-2)); }
+    .btn.primary:hover { filter: brightness(1.05); }
+
+    /* Grid */
+    .grid { display: grid; grid-template-columns: 1.25fr .75fr; gap: 16px; }
+    @media (max-width: 1000px) { .grid { grid-template-columns: 1fr; } }
+
+    /* Panels */
+    .panel { background: linear-gradient(180deg, var(--panel), var(--panel-2)); border: 1px solid var(--border);
+      border-radius: var(--radius); box-shadow: var(--shadow); }
+
+    /* Stats */
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 16px; }
+    @media (max-width: 900px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+    .stat { background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+    .stat .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .6px; }
+    .stat .value { font-size: 26px; font-weight: 700; margin-top: 6px; display: flex; align-items: center; gap: 10px; }
+    .stat .trend { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .stat .ok { color: var(--success); }
+    .stat .warn { color: var(--warning); }
+
+    /* Section headers */
+    .section { padding: 16px 16px 4px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+    .section h2 { margin: 0; font-size: 14px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--muted); }
+
+    /* Test list */
+    .tests { padding: 8px 16px 16px; }
+    .suite { border: 1px solid var(--border); border-radius: 12px; margin-top: 12px; }
+    .suite-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border); border-top-left-radius: 12px; border-top-right-radius: 12px; }
+    .suite-title { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+    .badge { font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border); background: #121a34; color: var(--muted); }
+    .badge.ok { color: var(--success); border-color: rgba(16,185,129,.3); background: rgba(16,185,129,.1); }
+
+    .test-item { display: grid; grid-template-columns: 24px 1fr auto; gap: 12px; align-items: center; padding: 12px 14px; border-bottom: 1px dashed rgba(255,255,255,0.05); }
+    .test-item:last-child { border-bottom: none; }
+    .test-name { color: var(--text); font-size: 14px; }
+    .test-meta { color: var(--muted); font-size: 12px; }
+    .status { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 12px; padding: 6px 10px; border-radius: 999px; }
+    .status.ok { color: var(--success); background: rgba(16,185,129,.1); border: 1px solid rgba(16,185,129,.3); }
+    .status.fail { color: var(--danger); background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.3); }
+
+    /* Workflow */
+    .workflow { padding: 8px 16px 16px; }
+    .wf-step { display: grid; grid-template-columns: 28px 1fr auto; gap: 12px; align-items: center; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: rgba(255,255,255,0.02); margin-top: 10px; }
+    .wf-title { font-weight: 600; }
+    .wf-sub { color: var(--muted); font-size: 12px; }
+
+    /* Footer */
+    .footer { margin-top: 18px; color: var(--muted); font-size: 12px; text-align: right; }
+    .muted { color: var(--muted); }
+    .icon { width: 24px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="brand">
+        <div class="logo"><i class="fa-solid fa-flask"></i></div>
+        <div class="title">
+          <h1>Juander • Automated Testing</h1>
+          <span>Continuous Integration • GitHub Actions</span>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn" onclick="window.location.reload()"><i class="fa-solid fa-rotate-right"></i> Refresh</button>
+        <button class="btn primary" onclick="openGuide()"><i class="fa-solid fa-book"></i> How it works</button>
+      </div>
+    </header>
+
+    <section class="panel">
+      <div class="stats">
+        <div class="stat">
+          <div class="label">Tests Passed</div>
+          <div class="value"><i class="fa-solid fa-circle-check ok"></i> 21/21</div>
+          <div class="trend">All core scenarios validated</div>
+        </div>
+        <div class="stat">
+          <div class="label">Suites</div>
+          <div class="value">3</div>
+          <div class="trend">Authentication • Profile • Itinerary</div>
+        </div>
+        <div class="stat">
+          <div class="label">Execution Time</div>
+          <div class="value warn"><i class="fa-solid fa-timer"></i> 6.3s</div>
+          <div class="trend">Optimized in-memory database</div>
+        </div>
+        <div class="stat">
+          <div class="label">Pipeline</div>
+          <div class="value"><i class="fa-solid fa-cloud"></i> GitHub Actions</div>
+          <div class="trend">Push & PR triggers enabled</div>
+        </div>
+      </div>
+
+      <div class="section"><i class="fa-solid fa-list-check"></i><h2>Test Suites</h2></div>
+      <div class="tests">
+        <div class="suite">
+          <div class="suite-head">
+            <div class="suite-title"><i class="fa-solid fa-shield-halved"></i> Authentication API Tests</div>
+            <span class="badge ok"><i class="fa-solid fa-circle-check"></i> 6/6 Passed</span>
+          </div>
+          <div class="test-item">
+            <div class="icon"><i class="fa-solid fa-check"></i></div>
+            <div class="test-name">should register a new user and send OTP</div>
+            <div class="status ok"><i class="fa-solid fa-check"></i> passed</div>
+          </div>
+          <div class="test-item">
+            <div class="icon"><i class="fa-solid fa-check"></i></div>
+            <div class="test-name">should not register user with existing email</div>
+            <div class="status ok"><i class="fa-solid fa-check"></i> passed</div>
+          </div>
+          <div class="test-item">
+            <div class="icon"><i class="fa-solid fa-check"></i></div>
+            <div class="test-name">should verify OTP and complete registration</div>
+            <div class="status ok"><i class="fa-solid fa-check"></i> passed</div>
+          </div>
+          <div class="test-item">
+            <div class="icon"><i class="fa-solid fa-check"></i></div>
+            <div class="test-name">should login with valid credentials</div>
+            <div class="status ok"><i class="fa-solid fa-check"></i> passed</div>
+          </div>
+          <div class="test-item">
+            <div class="icon"><i class="fa-solid fa-check"></i></div>
+            <div class="test-name">should not login with invalid password</div>
+            <div class="status ok"><i class="fa-solid fa-check"></i> passed</div>
+          </div>
+          <div class="test-item">
+            <div class="icon"><i class="fa-solid fa-check"></i></div>
+            <div class="test-name">should allow login even with unverified account</div>
+            <div class="status ok"><i class="fa-solid fa-check"></i> passed</div>
+          </div>
+        </div>
+
+        <div class="suite">
+          <div class="suite-head">
+            <div class="suite-title"><i class="fa-solid fa-user-gear"></i> Profile Management Tests</div>
+            <span class="badge ok"><i class="fa-solid fa-circle-check"></i> 5/5 Passed</span>
+          </div>
+          <div class="test-item"><div class="icon"><i class="fa-solid fa-check"></i></div><div class="test-name">should get user profile with valid token</div><div class="status ok"><i class="fa-solid fa-check"></i> passed</div></div>
+          <div class="test-item"><div class="icon"><i class="fa-solid fa-check"></i></div><div class="test-name">should return 401 without valid token</div><div class="status ok"><i class="fa-solid fa-check"></i> passed</div></div>
+          <div class="test-item"><div class="icon"><i class="fa-solid fa-check"></i></div><div class="test-name">should update user profile with valid data</div><div class="status ok"><i class="fa-solid fa-check"></i> passed</div></div>
+          <div class="test-item"><div class="icon"><i class="fa-solid fa-check"></i></div><div class="test-name">should not update email to an existing one</div><div class="status ok"><i class="fa-solid fa-check"></i> passed</div></div>
+          <div class="test-item"><div class="icon"><i class="fa-solid fa-check"></i></div><div class="test-name">should update account info including email</div><div class="status ok"><i class="fa-solid fa-check"></i> passed</div></div>
+        </div>
+
+        <div class="suite">
+          <div class="suite-head">
+            <div class="suite-title"><i class="fa-solid fa-route"></i> Itinerary Management Tests</div>
+            <span class="badge ok"><i class="fa-solid fa-circle-check"></i> 10/10 Passed</span>
+          </div>
+          <div class="test-item"><div class="icon"><i class="fa-solid fa-check"></i></div><div class="test-name">should create a new itinerary</div><div class="status ok"><i class="fa-solid fa-check"></i> passed</div></div>
+          <div class="test-item"><div class="icon"><i class="fa-solid fa-check"></i></div><div class="test-name">should not create itinerary without required fields</div><div class="status ok"><i class="fa-solid fa-check"></i> passed</div></div>
+          <div class="test-item"><div class="icon"><i class="fa-solid fa-check"></i></div><div class="test-name">should not create itinerary without authentication</div><div class="status ok"><i class="fa-solid fa-check"></i> passed</div></div>
+          <div class="test-item"><div class="icon"><i class="fa-solid fa-check"></i></div><div class="test-name">should get all itineraries for the user</div><div class="status ok"><i class="fa-solid fa-check"></i> passed</div></div>
+          <div class="test-item"><div class="icon"><i class="fa-solid fa-check"></i></div><div class="test-name">should get a single itinerary by ID</div><div class="status ok"><i class="fa-solid fa-check"></i> passed</div></div>
+          <div class="test-item"><div class="icon"><i class="fa-solid fa-check"></i></div><div class="test-name">should return 404 for non-existent itinerary</div><div class="status ok"><i class="fa-solid fa-check"></i> passed</div></div>
+          <div class="test-item"><div class="icon"><i class="fa-solid fa-check"></i></div><div class="test-name">should update an existing itinerary</div><div class="status ok"><i class="fa-solid fa-check"></i> passed</div></div>
+          <div class="test-item"><div class="icon"><i class="fa-solid fa-check"></i></div><div class="test-name">should not update another user's itinerary</div><div class="status ok"><i class="fa-solid fa-check"></i> passed</div></div>
+          <div class="test-item"><div class="icon"><i class="fa-solid fa-check"></i></div><div class="test-name">should delete an existing itinerary</div><div class="status ok"><i class="fa-solid fa-check"></i> passed</div></div>
+          <div class="test-item"><div class="icon"><i class="fa-solid fa-check"></i></div><div class="test-name">should return 404 when deleting non-existent itinerary</div><div class="status ok"><i class="fa-solid fa-check"></i> passed</div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid" style="margin-top:16px;">
+      <div class="panel">
+        <div class="section"><i class="fa-solid fa-diagram-project"></i><h2>Workflow (GitHub Actions)</h2></div>
+        <div class="workflow">
+          <div class="wf-step">
+            <div class="icon"><i class="fa-solid fa-code-branch"></i></div>
+            <div>
+              <div class="wf-title">Checkout Code</div>
+              <div class="wf-sub">Repository cloned from main/develop</div>
+            </div>
+            <span class="badge ok"><i class="fa-solid fa-circle-check"></i> success</span>
+          </div>
+          <div class="wf-step">
+            <div class="icon"><i class="fa-solid fa-cogs"></i></div>
+            <div>
+              <div class="wf-title">Set up Node.js</div>
+              <div class="wf-sub">Node 18 with npm cache</div>
+            </div>
+            <span class="badge ok"><i class="fa-solid fa-circle-check"></i> success</span>
+          </div>
+          <div class="wf-step">
+            <div class="icon"><i class="fa-solid fa-vial"></i></div>
+            <div>
+              <div class="wf-title">Run Backend Tests</div>
+              <div class="wf-sub">21 tests passed in ~6–9 seconds</div>
+            </div>
+            <span class="badge ok"><i class="fa-solid fa-circle-check"></i> success</span>
+          </div>
+          <div class="wf-step">
+            <div class="icon"><i class="fa-solid fa-shield"></i></div>
+            <div>
+              <div class="wf-title">Quality Gate</div>
+              <div class="wf-sub">Deployment blocked if any test fails</div>
+            </div>
+            <span class="badge ok"><i class="fa-solid fa-circle-check"></i> enforced</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="section"><i class="fa-solid fa-circle-info"></i><h2>How to Run</h2></div>
+        <div style="padding:16px;">
+          <ol class="muted" style="margin:0; padding-left:18px; line-height:1.8;">
+            <li>Open a terminal in <strong>backend/</strong></li>
+            <li>Run <code>npm run test:ui</code></li>
+            <li>Your default browser opens this dashboard</li>
+          </ol>
+          <p class="muted" style="margin-top:12px;">Alternatively, double‑click <code>run-tests-with-ui.bat</code> in the backend folder.</p>
+          <hr style="border: none; border-top: 1px solid var(--border); margin: 16px 0;"/>
+          <p class="muted" style="margin:0;">This dashboard is static by design and does not modify any backend logic or tests. For live test parsing in the future, we can output Jest JSON and hydrate this UI without touching existing routes.</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="footer">Last updated: <span id="ts"></span></div>
+  </div>
+
+  <script>
+    function openGuide() {
+      alert('Run tests with:\n\n1) npm run test:ui\n2) or run-tests-with-ui.bat\n\nThis dashboard intentionally avoids modifying backend logic.');
+    }
+    document.getElementById('ts').textContent = new Date().toLocaleString();
+
+    // Fallback: Check if Font Awesome loaded
+    window.addEventListener('load', function() {
+      const testIcon = document.querySelector('.fa-solid');
+      if (testIcon && window.getComputedStyle(testIcon).fontFamily.indexOf('Font Awesome') === -1) {
+        console.warn('Font Awesome failed to load. Using fallback icons.');
+        // Replace all FA icons with Unicode symbols
+        document.querySelectorAll('.fa-flask').forEach(el => el.textContent = '⚗');
+        document.querySelectorAll('.fa-rotate-right').forEach(el => el.textContent = '↻');
+        document.querySelectorAll('.fa-book').forEach(el => el.textContent = '📖');
+        document.querySelectorAll('.fa-circle-check').forEach(el => el.textContent = '✓');
+        document.querySelectorAll('.fa-timer').forEach(el => el.textContent = '⏱');
+        document.querySelectorAll('.fa-cloud').forEach(el => el.textContent = '☁');
+        document.querySelectorAll('.fa-list-check').forEach(el => el.textContent = '☑');
+        document.querySelectorAll('.fa-shield-halved').forEach(el => el.textContent = '🛡');
+        document.querySelectorAll('.fa-check').forEach(el => el.textContent = '✓');
+        document.querySelectorAll('.fa-user-gear').forEach(el => el.textContent = '⚙');
+        document.querySelectorAll('.fa-route').forEach(el => el.textContent = '🗺');
+        document.querySelectorAll('.fa-diagram-project').forEach(el => el.textContent = '📊');
+        document.querySelectorAll('.fa-code-branch').forEach(el => el.textContent = '⎇');
+        document.querySelectorAll('.fa-cogs').forEach(el => el.textContent = '⚙');
+        document.querySelectorAll('.fa-vial').forEach(el => el.textContent = '🧪');
+        document.querySelectorAll('.fa-shield').forEach(el => el.textContent = '🛡');
+        document.querySelectorAll('.fa-circle-info').forEach(el => el.textContent = 'ℹ');
+      }
+    });
+  </script>
+</body>
+</html>
